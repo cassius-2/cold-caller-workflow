@@ -1,0 +1,45 @@
+```python
+# pipedream add-package google-genai
+import os
+from google import genai
+from google.genai import types
+
+
+def handler(pd: "pipedream"):
+    job_description = pd.steps["scraper"]["$return_value"]
+
+    if isinstance(job_description, dict):
+        job_description = job_description.get("description", "")
+
+    if not job_description or not job_description.strip():
+        raise ValueError("No job description text was passed from the previous step.")
+
+    cv_text = os.environ["CV_TEXT"]
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+    prompt = (
+        "You are writing a casual, direct LinkedIn connection message to a technical recruiter.\n\n"
+        f"Here is the Job Description:\n{job_description}\n\n"
+        f"Here is my CV:\n{cv_text}\n\n"
+        "Task: Write a short, friendly message (under 100 words) asking to connect about the role.\n"
+        "STRICT RULES:\n\n"
+        "1. Tone: Casual, professional, and confident. Write how a real person speaks on an informal chat app.\n"
+        "2. Match: Mention ONE specific requirement from the job description that genuinely matches something in my CV. Do not invent experience I don't have.\n"
+        "3. Banned phrases: Do NOT use \"I hope this message finds you well,\" \"I noticed your profile,\" "
+        "\"synergy,\" \"elevate,\" \"thrilled,\" \"delve,\" or \"dynamic.\"\n"
+        "4. Structure: No subject lines. Start directly with \"Hi there,\" and end with \"Cheers, Mathusan.\"\n"
+        "5. Before saying Cheers, say \"Open to a quick chat to see if you also think I'm a good fit?\""
+    )
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            temperature=0.9,
+            max_output_tokens=300,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        ),
+    )
+
+    return response.text.strip()
+```
