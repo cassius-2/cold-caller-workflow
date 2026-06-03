@@ -1,0 +1,33 @@
+```python
+import os
+import requests
+
+
+def handler(pd: "pipedream"):
+    drafted_message = pd.steps["gemini"]["$return_value"]
+
+    if isinstance(drafted_message, dict):
+        drafted_message = drafted_message.get("text") or drafted_message.get("description") or ""
+
+    if not drafted_message or not str(drafted_message).strip():
+        raise ValueError("No drafted message was passed from the previous step.")
+
+    chat_id = pd.steps["trigger"]["event"]["message"]["chat"]["id"]
+
+    token = os.environ["TELEGRAM_BOT_TOKEN"]
+    api_url = f"https://api.telegram.org/bot{token}/sendMessage"
+
+    payload = {
+        "chat_id": chat_id,
+        "text": drafted_message,
+        "parse_mode": "Markdown",
+    }
+
+    resp = requests.post(api_url, json=payload, timeout=20)
+    result = resp.json()
+
+    if not result.get("ok"):
+        raise RuntimeError(f"Telegram API error: {result}")
+
+    return result
+```
